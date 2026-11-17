@@ -446,13 +446,29 @@ def show_logs() -> None:
     pause()
 
 
+def update_program() -> bool:
+    """git pull + переустановка. Возвращает True, если код обновился (панель нужно открыть заново)."""
+    console.clear()
+    console.print("Обновление с GitHub (понадобится пароль sudo, если он настроен)…\n")
+    try:
+        code = subprocess.call(["sudo", "/usr/local/bin/studybot", "update"])
+    except FileNotFoundError:
+        console.print("[red]Команда studybot не установлена — запустите deploy/install.sh[/red]")
+        pause()
+        return False
+    pause()
+    if code == 0 and Confirm.ask("Если код обновился — панель нужно открыть заново. Выйти сейчас?", default=True):
+        return True
+    return False
+
+
 def main() -> None:
     while True:
         console.clear()
         header()
         console.print(
             "[1] Чаты\n[2] LLM / API\n[3] Сводка\n[4] Предметы\n[5] Материалы и Obsidian\n"
-            "[6] Telegram (аккаунт, бот)\n[7] Логи\n[8] Перезапустить демон\n[0] Выход"
+            "[6] Telegram (аккаунт, бот)\n[7] Логи\n[8] Перезапустить демон\n[9] Обновить программу\n[0] Выход"
         )
         ch = Prompt.ask("Выбор", default="0")
         try:
@@ -464,6 +480,8 @@ def main() -> None:
                 control("restart")
                 console.print("Демон перезапускается…")
                 time.sleep(2)
+            elif ch == "9" and update_program():
+                return
         except KeyboardInterrupt:
             continue
         except Exception as e:

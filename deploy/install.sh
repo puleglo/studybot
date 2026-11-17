@@ -36,6 +36,25 @@ cat > /usr/local/bin/studybot <<EOF
 # studybot            — панель управления
 # studybot setup      — первичная настройка
 # studybot login      — перелогиниться в аккаунт
+# studybot update     — скачать новую версию с GitHub и переустановить (настройки не трогаются)
+SRC_DIR="$SRC_DIR"
+if [ "\${1:-}" = "update" ]; then
+  if [ ! -d "\$SRC_DIR/.git" ]; then
+    echo "\$SRC_DIR — не git-репозиторий. Скачайте заново: git clone https://github.com/puleglo/studybot.git" >&2
+    exit 1
+  fi
+  OWNER="\$(stat -c %U "\$SRC_DIR")"
+  echo "==> Скачиваю обновления в \$SRC_DIR"
+  OLD="\$(sudo -u "\$OWNER" git -C "\$SRC_DIR" rev-parse --short HEAD)"
+  sudo -u "\$OWNER" git -C "\$SRC_DIR" pull --ff-only || { echo "git pull не удался (локальные правки?)" >&2; exit 1; }
+  NEW="\$(sudo -u "\$OWNER" git -C "\$SRC_DIR" rev-parse --short HEAD)"
+  if [ "\$OLD" = "\$NEW" ] && [ "\${2:-}" != "--force" ]; then
+    echo "Уже последняя версия (\$NEW). Переустановить всё равно: studybot update --force"
+    exit 0
+  fi
+  sudo -u "\$OWNER" git -C "\$SRC_DIR" log --oneline "\$OLD..\$NEW" 2>/dev/null | sed 's/^/    /'
+  exec sudo STUDYBOT_UPDATE=1 bash "\$SRC_DIR/deploy/install.sh"
+fi
 if [ "\$(id -un)" != "$RUN_USER" ]; then exec sudo -u "$RUN_USER" "\$0" "\$@"; fi
 cd "$APP_DIR"
 [ \$# -eq 0 ] && set -- panel
@@ -56,6 +75,8 @@ if [ -f "$APP_DIR/data/couchdb.env" ]; then
   echo "Уже установлена этим скриптом (данные: $APP_DIR/data/couchdb.env)."
 elif curl -fs -o /dev/null http://127.0.0.1:5984/ 2>/dev/null; then
   echo "На сервере уже есть CouchDB — укажите её в 'studybot setup', базу бот создаст сам."
+elif [ -n "${STUDYBOT_UPDATE:-}" ]; then
+  echo "Не установлена (поставить: sudo bash $SRC_DIR/deploy/couchdb.sh)."
 else
   read -r -p "CouchDB не найдена. Установить и создать базу для Obsidian? [Y/n]: " ans
   if [ "${ans:-Y}" != "n" ] && [ "${ans:-Y}" != "N" ]; then
@@ -66,6 +87,7 @@ fi
 cat <<EOF
 
 Готово.
+  Обновление:    studybot update
   1) Настройка:  studybot setup
   2) Запуск:     sudo systemctl enable --now studybot
   3) Панель:     studybot          (с компьютера: ssh <vps> -t studybot)

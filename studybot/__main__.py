@@ -95,8 +95,12 @@ def setup_wizard() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="studybot")
-    ap.add_argument("command", nargs="?", default="panel", choices=["run", "panel", "setup", "login"])
-    args = ap.parse_args()
+    ap.add_argument("command", nargs="?", default="panel", choices=["run", "panel", "setup", "login", "update"])
+    args, _ = ap.parse_known_args()
+    if args.command == "update":
+        # обновление делает обёртка /usr/local/bin/studybot (git pull + install.sh от root)
+        print("Используйте команду:  studybot update")
+        return
     if args.command == "run":
         from .app import main as run_main
         try:
