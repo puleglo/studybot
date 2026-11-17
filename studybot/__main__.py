@@ -67,7 +67,14 @@ def setup_wizard() -> None:
         config.update(lambda c: c["subjects"].extend(n for n in names if n not in c["subjects"]))
 
     console.print("\n[bold]7. Obsidian через CouchDB (Self-hosted LiveSync)[/bold]")
-    if Confirm.ask("Настроить сейчас?", default=True):
+    cc_now = config.current()["couchdb"]
+    if cc_now["enabled"] and cc_now["password"]:
+        console.print(f"Уже настроено установщиком: {cc_now['url']}, база «{cc_now['database']}».")
+        panel.check_couch(cc_now)
+        ask_couch = Confirm.ask("Изменить настройки CouchDB?", default=False)
+    else:
+        ask_couch = Confirm.ask("Настроить сейчас? (базы нет — бот создаст её сам)", default=True)
+    if ask_couch:
         cc = dict(config.current()["couchdb"])
         cc["url"] = Prompt.ask("URL CouchDB", default=cc["url"])
         cc["database"] = Prompt.ask("Имя базы (как в LiveSync)", default=cc["database"])

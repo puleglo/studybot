@@ -47,7 +47,8 @@ class LiveSync:
         if r.status_code == 401:
             raise LiveSyncError("CouchDB: неверный логин/пароль")
         if r.status_code == 404:
-            raise LiveSyncError(f"CouchDB: база «{self.cc['database']}» не найдена")
+            await self.create_database()
+            r = await self.http.get(self.base)
         r.raise_for_status()
         db_info = r.json()
 
@@ -112,6 +113,19 @@ class LiveSync:
                 "Отключите их в настройках плагина или пользуйтесь локальным сохранением."
             )
         return self.info
+
+    async def create_database(self) -> None:
+        """Создать пустую базу. LiveSync сам подхватит её при подключении."""
+        r = await self.http.put(self.base)
+        if r.status_code in (201, 202, 412):  # 412 — уже существует
+            log.info("CouchDB: создана база «%s»", self.cc["database"])
+            return
+        if r.status_code in (401, 403):
+            raise LiveSyncError(
+                f"CouchDB: базы «{self.cc['database']}» нет, а у пользователя нет прав её создать "
+                "(нужен админ CouchDB или создайте базу вручную)"
+            )
+        raise LiveSyncError(f"CouchDB: не удалось создать базу: {r.status_code} {r.text[:200]}")
 
     async def _ensure(self) -> None:
         if self.case_sensitive is None:

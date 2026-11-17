@@ -14,7 +14,7 @@ fi
 
 echo "==> Пакеты"
 apt-get update -qq
-apt-get install -y -qq python3 python3-venv python3-pip >/dev/null
+apt-get install -y -qq python3 python3-venv python3-pip curl >/dev/null
 
 echo "==> Код в $APP_DIR (пользователь сервиса: $RUN_USER)"
 mkdir -p "$APP_DIR/data"
@@ -49,6 +49,18 @@ systemctl daemon-reload
 if systemctl is-active --quiet studybot; then
   systemctl restart studybot
   echo "Сервис перезапущен с новым кодом."
+fi
+
+echo "==> CouchDB для Obsidian"
+if [ -f "$APP_DIR/data/couchdb.env" ]; then
+  echo "Уже установлена этим скриптом (данные: $APP_DIR/data/couchdb.env)."
+elif curl -fs -o /dev/null http://127.0.0.1:5984/ 2>/dev/null; then
+  echo "На сервере уже есть CouchDB — укажите её в 'studybot setup', базу бот создаст сам."
+else
+  read -r -p "CouchDB не найдена. Установить и создать базу для Obsidian? [Y/n]: " ans
+  if [ "${ans:-Y}" != "n" ] && [ "${ans:-Y}" != "N" ]; then
+    RUN_USER="$RUN_USER" bash "$SRC_DIR/deploy/couchdb.sh"
+  fi
 fi
 
 cat <<EOF
