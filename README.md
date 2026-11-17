@@ -30,16 +30,14 @@ SSH ──► studybot (панель в терминале)  — сетевых 
 
 ## Установка
 
-С компьютера скопируйте папку на сервер:
-
-```bash
-scp -r telegramparser user@vps:~/
-```
-
 На сервере:
 
 ```bash
-cd ~/telegramparser && sudo bash deploy/install.sh
+sudo apt-get install -y git && git clone https://github.com/puleglo/studybot.git ~/studybot
+```
+
+```bash
+cd ~/studybot && sudo bash deploy/install.sh
 ```
 
 ```bash
@@ -52,7 +50,7 @@ sudo systemctl enable --now studybot
 
 Мастер `setup` спросит ключи, войдёт в аккаунт (код придёт в Telegram), покажет ваши группы для выбора и проверит API и CouchDB.
 
-Обновление кода: скопируйте новую версию и снова запустите `sudo bash deploy/install.sh`. Папка `data/` (настройки, сессия, база) не затрагивается.
+Обновление кода: `cd ~/studybot && git pull && sudo bash deploy/install.sh`. Папка `data/` (настройки, сессия, база) живёт в `/opt/studybot/data` и не затрагивается.
 
 ## Панель (только через SSH)
 
