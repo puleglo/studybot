@@ -1,0 +1,22 @@
+[Unit]
+Description=StudyBot - Telegram study chat digests and Obsidian materials
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=/opt/studybot
+ExecStart=/opt/studybot/.venv/bin/python -m studybot run
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+# Сервис никаких портов не слушает — только исходящие соединения.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/studybot/data
+
+[Install]
+WantedBy=multi-user.target
