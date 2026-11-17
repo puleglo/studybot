@@ -73,11 +73,14 @@ fi
 echo "==> CouchDB для Obsidian"
 if [ -f "$APP_DIR/data/couchdb.env" ]; then
   echo "Уже установлена этим скриптом (данные: $APP_DIR/data/couchdb.env)."
-elif curl -fs -o /dev/null http://127.0.0.1:5984/ 2>/dev/null; then
-  echo "На сервере уже есть CouchDB — укажите её в 'studybot setup', базу бот создаст сам."
+elif curl -sI --max-time 3 http://127.0.0.1:5984/ 2>/dev/null | grep -qi '^server: couchdb'; then
+  echo "На сервере уже есть CouchDB (127.0.0.1:5984) — укажите её в 'studybot setup', базу бот создаст сам."
 elif [ -n "${STUDYBOT_UPDATE:-}" ]; then
   echo "Не установлена (поставить: sudo bash $SRC_DIR/deploy/couchdb.sh)."
 else
+  if ss -Hltn "( sport = :5984 )" 2>/dev/null | grep -q .; then
+    echo "Порт 5984 занят другой программой — CouchDB будет поставлена на свободный порт."
+  fi
   read -r -p "CouchDB не найдена. Установить и создать базу для Obsidian? [Y/n]: " ans
   if [ "${ans:-Y}" != "n" ] && [ "${ans:-Y}" != "N" ]; then
     RUN_USER="$RUN_USER" bash "$SRC_DIR/deploy/couchdb.sh"
