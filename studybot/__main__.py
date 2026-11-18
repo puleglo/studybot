@@ -13,7 +13,7 @@ def setup_wizard() -> None:
     from . import config, panel
     from .panel import console
 
-    def d(value) -> dict:
+    def dflt(value) -> dict:
         """default= только если значение есть (иначе rich вернёт None на пустой ввод)."""
         return {"default": value} if value else {}
 
@@ -21,8 +21,8 @@ def setup_wizard() -> None:
     tg = config.current()["telegram"]
 
     console.print("\n[bold]1. Telegram API[/bold] — получите на https://my.telegram.org → API development tools")
-    aid = IntPrompt.ask("api_id", **d(int(tg["api_id"] or 0)))
-    ah = Prompt.ask("api_hash", **d(tg["api_hash"])).strip()
+    aid = IntPrompt.ask("api_id", **dflt(int(tg["api_id"] or 0)))
+    ah = Prompt.ask("api_hash", **dflt(tg["api_hash"])).strip()
     config.update(lambda c: c["telegram"].update({"api_id": aid, "api_hash": ah}))
 
     dialogs = []
@@ -51,7 +51,7 @@ def setup_wizard() -> None:
             {"id": d["id"], "title": d["title"], "enabled": True} for d in picked if d["id"] not in have))
 
     console.print("\n[bold]3. Бот для сводок[/bold] — создайте в @BotFather и потом нажмите у него /start")
-    tok = Prompt.ask("Токен бота", **d(config.current()["telegram"]["bot_token"]), password=True).strip()
+    tok = Prompt.ask("Токен бота", **dflt(config.current()["telegram"]["bot_token"]), password=True).strip()
     config.update(lambda c: c["telegram"].__setitem__("bot_token", tok))
 
     console.print("\n[bold]4. LLM[/bold] — ключ DeepSeek: https://platform.deepseek.com/api_keys")
@@ -86,7 +86,7 @@ def setup_wizard() -> None:
         cc = dict(config.current()["couchdb"])
         cc["url"] = Prompt.ask("URL CouchDB", default=cc["url"])
         cc["database"] = Prompt.ask("Имя базы (как в LiveSync)", default=cc["database"])
-        cc["username"] = Prompt.ask("Логин", **d(cc["username"]))
+        cc["username"] = Prompt.ask("Логин", **dflt(cc["username"]))
         cc["password"] = Prompt.ask("Пароль", password=True)
         cc["base_folder"] = Prompt.ask("Папка в хранилище", default=cc["base_folder"])
         cc["enabled"] = panel.check_couch(cc) or Confirm.ask("Проверка не прошла. Всё равно включить?", default=False)
