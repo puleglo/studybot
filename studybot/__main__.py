@@ -29,6 +29,14 @@ def setup_wizard() -> None:
     if not tg["session"] or Confirm.ask("Сессия аккаунта уже есть. Войти заново?", default=False):
         console.print("\n[bold]2. Вход в ваш аккаунт[/bold] (бот будет только читать чаты)")
         dialogs = panel.do_login()
+    elif not config.current()["chats"] or Confirm.ask("Чаты уже выбраны. Изменить список?", default=False):
+        from .login import list_dialogs
+        tg = config.current()["telegram"]
+        try:
+            with console.status("Загружаю список ваших групп…"):
+                dialogs = asyncio.run(list_dialogs(int(tg["api_id"]), tg["api_hash"], tg["session"]))
+        except Exception as e:
+            console.print(f"[red]Не удалось получить список чатов: {e}[/red]")
     if dialogs and Confirm.ask("\nВыбрать чаты для отслеживания сейчас?", default=True):
         t = Table()
         t.add_column("#", justify="right")

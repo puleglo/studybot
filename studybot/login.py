@@ -176,6 +176,21 @@ async def interactive_login(api_id: int, api_hash: str) -> tuple[str, str, list[
         await client.disconnect()
 
 
+async def list_dialogs(api_id: int, api_hash: str, session: str) -> list[dict]:
+    """Группы/каналы по уже сохранённой сессии (без повторного входа)."""
+    client = TelegramClient(StringSession(session), api_id, api_hash, **DEVICE)
+    await client.connect()
+    try:
+        if not await client.is_user_authorized():
+            raise RuntimeError("сохранённая сессия недействительна — нужно войти заново")
+        return [
+            {"id": d.id, "title": d.name, "type": "группа" if d.is_group else "канал"}
+            async for d in client.iter_dialogs() if d.is_group or d.is_channel
+        ]
+    finally:
+        await client.disconnect()
+
+
 async def _finish(client: TelegramClient) -> tuple[str, str, list[dict]]:
     me = await client.get_me()
     print(f"  ✓ Вошли как {display_name(me)}")
