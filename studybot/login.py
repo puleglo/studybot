@@ -71,11 +71,57 @@ def describe(sent) -> tuple[str, bool]:
     return text, nxt is not None
 
 
+def print_qr(url: str) -> None:
+    import qrcode
+    q = qrcode.QRCode(border=2, error_correction=qrcode.constants.ERROR_CORRECT_L)
+    q.add_data(url)
+    q.make(fit=True)
+    q.print_ascii(invert=True)
+
+
+async def password_step(client: TelegramClient) -> None:
+    for _ in range(3):
+        try:
+            await client.sign_in(password=getpass("Облачный пароль (2FA): "))
+            return
+        except errors.PasswordHashInvalidError:
+            print("  Неверный пароль.")
+    raise RuntimeError("неверный облачный пароль 3 раза")
+
+
+async def qr_login(client: TelegramClient) -> None:
+    import asyncio
+    from datetime import datetime, timezone
+
+    print("\n  На телефоне: Telegram → Настройки → Устройства → «Подключить устройство»")
+    print("  и наведите камеру на QR-код ниже. Если окно узкое — разверните его.\n")
+    qr = await client.qr_login()
+    for _ in range(10):  # ~5 минут: QR живёт ~30 с, потом обновляется
+        print_qr(qr.url)
+        left = max(5, int((qr.expires - datetime.now(timezone.utc)).total_seconds()))
+        print(f"  Жду сканирования ({left} с)…")
+        try:
+            await qr.wait(timeout=left)
+            return
+        except asyncio.TimeoutError:
+            print("\n  QR устарел, вот новый:\n")
+            await qr.recreate()
+        except errors.SessionPasswordNeededError:
+            await password_step(client)
+            return
+    raise RuntimeError("QR так и не отсканировали")
+
+
 async def interactive_login(api_id: int, api_hash: str) -> tuple[str, str, list[dict]]:
     """Возвращает (StringSession, имя аккаунта, список групп/каналов)."""
     client = TelegramClient(StringSession(), api_id, api_hash, **DEVICE)
     await client.connect()
     try:
+        print("  Способ входа:\n    1) QR-код — сканируете телефоном, код не нужен (рекомендуется)\n    2) Код по номеру телефона")
+        if (input("  Выбор [1/2]: ").strip() or "1") != "2":
+            await qr_login(client)
+            return await _finish(client)
+
         # --- номер ---
         while True:
             phone = ask_phone()
@@ -113,14 +159,7 @@ async def interactive_login(api_id: int, api_hash: str) -> tuple[str, str, list[
                 await client.sign_in(phone, code, phone_code_hash=sent.phone_code_hash)
                 break
             except errors.SessionPasswordNeededError:
-                for _ in range(3):
-                    try:
-                        await client.sign_in(password=getpass("Облачный пароль (2FA): "))
-                        break
-                    except errors.PasswordHashInvalidError:
-                        print("  Неверный пароль.")
-                else:
-                    raise RuntimeError("неверный облачный пароль 3 раза")
+                await password_step(client)
                 break
             except errors.PhoneCodeInvalidError:
                 tries += 1
@@ -132,11 +171,16 @@ async def interactive_login(api_id: int, api_hash: str) -> tuple[str, str, list[
                 sent = await client.send_code_request(phone)
                 print(describe(sent)[0])
 
-        me = await client.get_me()
-        dialogs = []
-        async for d in client.iter_dialogs():
-            if d.is_group or d.is_channel:
-                dialogs.append({"id": d.id, "title": d.name, "type": "группа" if d.is_group else "канал"})
-        return client.session.save(), display_name(me), dialogs
+        return await _finish(client)
     finally:
         await client.disconnect()
+
+
+async def _finish(client: TelegramClient) -> tuple[str, str, list[dict]]:
+    me = await client.get_me()
+    print(f"  ✓ Вошли как {display_name(me)}")
+    dialogs = []
+    async for d in client.iter_dialogs():
+        if d.is_group or d.is_channel:
+            dialogs.append({"id": d.id, "title": d.name, "type": "группа" if d.is_group else "канал"})
+    return client.session.save(), display_name(me), dialogs
