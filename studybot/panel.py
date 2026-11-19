@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import subprocess
 import time
 from datetime import datetime
@@ -19,6 +20,9 @@ from . import config, llm
 from .livesync import LiveSync
 
 console = Console()
+
+# Обозначение клавиши в подсказках: [s], [e], [0] и т.п.
+_KEY_RE = re.compile(r"\[([^\]]+)]")
 
 
 # ---------- помощники ----------
@@ -44,6 +48,17 @@ def systemd_state() -> str:
 
 def pause() -> None:
     Prompt.ask("[dim]Enter — назад[/dim]", default="", show_default=False)
+
+
+def hint(text: str) -> None:
+    """Печать строки подсказки с клавишами.
+
+    rich считает [s], [e], [a], [d], [c], [k] и другие одиночные буквы в
+    скобках тегами стилей (зачёркивание, курсив и т.п.) и молча вырезает их,
+    из-за чего в подменю оставались только [0] и [1]. Оформляем каждую
+    клавишу явно, чтобы она всегда была видна.
+    """
+    console.print(_KEY_RE.sub(lambda m: f"[bold cyan]\\[{m.group(1)}][/bold cyan]", text))
 
 
 def parse_indexes(s: str, n: int) -> list[int]:
@@ -111,7 +126,7 @@ def menu_chats() -> None:
         for i, c in enumerate(cfg["chats"], 1):
             t.add_row(str(i), "✅" if c.get("enabled", True) else "⏸", c.get("title", ""), str(c["id"]))
         console.print(t)
-        console.print("[a] добавить из списка  [m] добавить по ID  [t] вкл/выкл  [d] удалить  [0] назад")
+        hint("[a] добавить из списка  [m] добавить по ID  [t] вкл/выкл  [d] удалить  [0] назад")
         ch = Prompt.ask("Действие", default="0").lower()
         changed = False
         if ch == "0":
@@ -204,7 +219,7 @@ def menu_llm() -> None:
                       p.get("model", ""), config.mask(p.get("api_key", "")))
         console.print(t)
         console.print(f"Температура: {cfg['llm']['temperature']}")
-        console.print("[s] сделать активным  [e] изменить  [a] добавить  [d] удалить  [c] проверить  [k] температура  [0] назад")
+        hint("[s] сделать активным  [e] изменить  [a] добавить  [d] удалить  [c] проверить  [k] температура  [0] назад")
         ch = Prompt.ask("Действие", default="0").lower()
         if ch == "0":
             return
@@ -251,7 +266,7 @@ def menu_summary() -> None:
         console.print(Panel(
             f"Ежедневная сводка: {'[green]вкл[/green]' if s['enabled'] else '[red]выкл[/red]'}\n"
             f"Время: {s['time']}   Часовой пояс: {s['timezone']}", title="Сводка"))
-        console.print("[e] вкл/выкл  [t] время  [z] часовой пояс  [n] прислать сейчас  [v] показать последнюю  [0] назад")
+        hint("[e] вкл/выкл  [t] время  [z] часовой пояс  [n] прислать сейчас  [v] показать последнюю  [0] назад")
         ch = Prompt.ask("Действие", default="0").lower()
         if ch == "0":
             return
@@ -282,7 +297,6 @@ def menu_summary() -> None:
             from .storage import Storage
             row = Storage(config.DB_PATH).last_summary()
             if row:
-                import re
                 console.print(Panel(re.sub(r"</?[bi]>|</?code>", "", row["text"]),
                                     title=f"от {datetime.fromtimestamp(row['created']):%d.%m %H:%M}"))
             else:
@@ -302,7 +316,7 @@ def menu_subjects() -> None:
             t.add_row(str(i), s)
         console.print(t)
         console.print("[dim]Новые предметы бот добавляет сам. Переименование влияет только на новые файлы.[/dim]")
-        console.print("[a] добавить  [r] переименовать  [d] удалить  [0] назад")
+        hint("[a] добавить  [r] переименовать  [d] удалить  [0] назад")
         ch = Prompt.ask("Действие", default="0").lower()
         if ch == "0":
             return
@@ -334,8 +348,8 @@ def menu_obsidian() -> None:
             f"URL: {cc['url']}   база: {cc['database']}   логин: {cc['username'] or '—'}   пароль: {config.mask(cc['password'])}\n"
             f"Папка в хранилище: {cc['base_folder']}   учёт регистра: {cc['case_sensitive']}",
             title="Материалы и Obsidian"))
-        console.print("[m] сбор вкл/выкл  [f] фото вкл/выкл  [l] лимит  [b] локальная копия  "
-                      "[c] CouchDB вкл/выкл  [s] настройки CouchDB  [t] проверить CouchDB  [0] назад")
+        hint("[m] сбор вкл/выкл  [f] фото вкл/выкл  [l] лимит  [b] локальная копия  "
+             "[c] CouchDB вкл/выкл  [s] настройки CouchDB  [t] проверить CouchDB  [0] назад")
         ch = Prompt.ask("Действие", default="0").lower()
         if ch == "0":
             return
@@ -394,7 +408,7 @@ def menu_telegram() -> None:
             f"Сессия аккаунта: {'есть' if tg['session'] else '[red]нет[/red]'}\n"
             f"Токен бота: {config.mask(tg['bot_token'])}\n"
             f"Получатель сводок (owner_id): {tg['owner_id'] or 'авто (ваш аккаунт)'}", title="Telegram"))
-        console.print("[l] войти в аккаунт заново  [b] токен бота  [o] owner_id  [k] api_id/api_hash  [0] назад")
+        hint("[l] войти в аккаунт заново  [b] токен бота  [o] owner_id  [k] api_id/api_hash  [0] назад")
         ch = Prompt.ask("Действие", default="0").lower()
         if ch == "0":
             return
@@ -466,7 +480,7 @@ def main() -> None:
     while True:
         console.clear()
         header()
-        console.print(
+        hint(
             "[1] Чаты\n[2] LLM / API\n[3] Сводка\n[4] Предметы\n[5] Материалы и Obsidian\n"
             "[6] Telegram (аккаунт, бот)\n[7] Логи\n[8] Перезапустить демон\n[9] Обновить программу\n[0] Выход"
         )
