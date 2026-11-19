@@ -103,7 +103,8 @@ def setup_wizard() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="studybot")
-    ap.add_argument("command", nargs="?", default="panel", choices=["run", "panel", "setup", "login", "update"])
+    ap.add_argument("command", nargs="?", default="panel",
+                    choices=["run", "panel", "setup", "login", "update", "qr"])
     args, _ = ap.parse_known_args()
     if args.command == "update":
         # обновление делает обёртка /usr/local/bin/studybot (git pull + install.sh от root)
@@ -126,6 +127,13 @@ def main() -> None:
     elif args.command == "login":
         from .panel import do_login
         do_login()
+    elif args.command == "qr":
+        from .panel import show_connect_qr
+        from . import config
+        try:
+            show_connect_qr(config.current()["couchdb"])
+        except (KeyboardInterrupt, EOFError):
+            print()
 
 
 if __name__ == "__main__":
